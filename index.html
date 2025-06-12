@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Penyimpan Link GDrive</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Penyimpan Link GDrive (Online)</title>
   <style>
     body {
       font-family: sans-serif;
@@ -47,10 +48,9 @@
   </style>
 </head>
 <body>
-
   <div class="container" id="login-screen">
     <h2>Masukkan Kunci</h2>
-    <input type="password" id="password" placeholder="Masukkan kunci...">
+    <input type="password" id="password" placeholder="Masukkan kunci..." />
     <button onclick="checkPassword()">Masuk</button>
     <p id="error" style="color: red;"></p>
   </div>
@@ -58,19 +58,36 @@
   <div class="container hidden" id="main-screen">
     <h2>Link Google Drive</h2>
     <form id="link-form">
-      <input type="text" id="title" placeholder="Judul File" required>
-      <input type="url" id="url" placeholder="URL Google Drive" required>
+      <input type="text" id="title" placeholder="Judul File" required />
+      <input type="url" id="url" placeholder="URL Google Drive" required />
       <button type="submit">Simpan</button>
     </form>
     <div id="link-list"></div>
   </div>
 
-  <script>
-    const correctPassword = "Zen123";
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-analytics.js";
+    import { getFirestore, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
-    function checkPassword() {
+    const firebaseConfig = {
+      apiKey: "AIzaSyCFYGEHBHvPC_djgsZeAaYEh5UTv21fmHE",
+      authDomain: "zenstatlord.firebaseapp.com",
+      projectId: "zenstatlord",
+      storageBucket: "zenstatlord.firebasestorage.app",
+      messagingSenderId: "207937844507",
+      appId: "1:207937844507:web:e0fce716325164a1240fbe",
+      measurementId: "G-GLSWV3S82F"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
+    const db = getFirestore(app);
+    const linksRef = collection(db, "driveLinks");
+
+    window.checkPassword = function () {
       const input = document.getElementById("password").value;
-      if (input === correctPassword) {
+      if (input === "Zen123") {
         document.getElementById("login-screen").classList.add("hidden");
         document.getElementById("main-screen").classList.remove("hidden");
         loadLinks();
@@ -79,29 +96,42 @@
       }
     }
 
-    function loadLinks() {
-      const linkList = JSON.parse(localStorage.getItem("links")) || [];
-      const container = document.getElementById("link-list");
-      container.innerHTML = "";
-      linkList.forEach(link => {
-        const div = document.createElement("div");
-        div.className = "link-item";
-        div.innerHTML = `<strong>${link.title}</strong><br><a href="${link.url}" target="_blank">${link.url}</a>`;
-        container.appendChild(div);
-      });
-    }
-
-    document.getElementById("link-form").addEventListener("submit", function(e) {
+    document.getElementById("link-form").addEventListener("submit", async function (e) {
       e.preventDefault();
       const title = document.getElementById("title").value;
       const url = document.getElementById("url").value;
-      const linkList = JSON.parse(localStorage.getItem("links")) || [];
-      linkList.push({ title, url });
-      localStorage.setItem("links", JSON.stringify(linkList));
-      loadLinks();
-      this.reset();
-    });
-  </script>
 
+      try {
+        await addDoc(linksRef, {
+          title: title,
+          url: url,
+          createdAt: new Date()
+        });
+        document.getElementById("title").value = "";
+        document.getElementById("url").value = "";
+        loadLinks();
+      } catch (error) {
+        alert("Gagal menyimpan link.");
+        console.error(error);
+      }
+    });
+
+    async function loadLinks() {
+      const listContainer = document.getElementById("link-list");
+      listContainer.innerHTML = "<p>Memuat link...</p>";
+
+      const q = query(linksRef, orderBy("createdAt", "desc"));
+      const querySnapshot = await getDocs(q);
+      listContainer.innerHTML = "";
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        const div = document.createElement("div");
+        div.className = "link-item";
+        div.innerHTML = `<strong>${data.title}</strong><br><a href="${data.url}" target="_blank">${data.url}</a>`;
+        listContainer.appendChild(div);
+      });
+    }
+  </script>
 </body>
 </html>
