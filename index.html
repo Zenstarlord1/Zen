@@ -3,135 +3,106 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Penyimpan Link GDrive (Online)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Upload File ke Supabase</title>
   <style>
     body {
       font-family: sans-serif;
-      background: #f4f4f4;
-      margin: 0;
-      padding: 0;
+      background: #f7f7f7;
+      padding: 20px;
     }
     .container {
       max-width: 500px;
-      margin: 50px auto;
+      margin: auto;
       background: white;
       padding: 20px;
       border-radius: 12px;
-      box-shadow: 0 0 12px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
-    input, button {
+    input, textarea, button {
       width: 100%;
       padding: 10px;
-      margin: 8px 0;
+      margin: 10px 0;
       border-radius: 8px;
       border: 1px solid #ccc;
     }
     button {
-      background-color: #4CAF50;
+      background-color: #2d8fdd;
       color: white;
-      border: none;
+      font-weight: bold;
       cursor: pointer;
+      border: none;
     }
-    button:hover {
-      background-color: #45a049;
-    }
-    .link-item {
-      margin: 10px 0;
-      padding: 10px;
-      background: #eee;
+    .hidden { display: none; }
+    .file-item {
+      background: #eaeaea;
+      padding: 12px;
+      margin-top: 10px;
       border-radius: 8px;
-    }
-    .hidden {
-      display: none;
     }
   </style>
 </head>
 <body>
-  <div class="container" id="login-screen">
-    <h2>Masukkan Kunci</h2>
-    <input type="password" id="password" placeholder="Masukkan kunci..." />
-    <button onclick="checkPassword()">Masuk</button>
-    <p id="error" style="color: red;"></p>
-  </div>
 
-  <div class="container hidden" id="main-screen">
-    <h2>Link Google Drive</h2>
-    <form id="link-form">
-      <input type="text" id="title" placeholder="Judul File" required />
-      <input type="url" id="url" placeholder="URL Google Drive" required />
-      <button type="submit">Simpan</button>
-    </form>
-    <div id="link-list"></div>
-  </div>
+<div class="container" id="login">
+  <h3>Masukkan Kunci Akses</h3>
+  <input type="password" id="keyInput" placeholder="Password...">
+  <button onclick="checkPassword()">Masuk</button>
+  <p id="wrong" style="color:red;"></p>
+</div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
-    import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-analytics.js";
-    import { getFirestore, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+<div class="container hidden" id="main">
+  <h2>Upload File</h2>
+  <form id="uploadForm">
+    <input type="file" id="fileInput" required />
+    <input type="text" id="judul" placeholder="Judul file" required />
+    <textarea id="deskripsi" placeholder="Deskripsi (opsional)"></textarea>
+    <button type="submit">Upload & Simpan</button>
+  </form>
+  <div id="result"></div>
+</div>
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyCFYGEHBHvPC_djgsZeAaYEh5UTv21fmHE",
-      authDomain: "zenstatlord.firebaseapp.com",
-      projectId: "zenstatlord",
-      storageBucket: "zenstatlord.firebasestorage.app",
-      messagingSenderId: "207937844507",
-      appId: "1:207937844507:web:e0fce716325164a1240fbe",
-      measurementId: "G-GLSWV3S82F"
-    };
+<script type="module">
+  import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-    const app = initializeApp(firebaseConfig);
-    const analytics = getAnalytics(app);
-    const db = getFirestore(app);
-    const linksRef = collection(db, "driveLinks");
+  const supabaseUrl = "https://fymvziordozgxawrtcqx.supabase.co";
+  const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5bXZ6aW9yZG96Z3hhd3J0Y3F4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk3NDgwOTIsImV4cCI6MjA2NTMyNDA5Mn0.FJU-oYOxfgMWrNg-62i_YybtxJC4l4w7ivtpp8EtPBc";
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  const bucket = "yes";
 
-    window.checkPassword = function () {
-      const input = document.getElementById("password").value;
-      if (input === "Zen123") {
-        document.getElementById("login-screen").classList.add("hidden");
-        document.getElementById("main-screen").classList.remove("hidden");
-        loadLinks();
-      } else {
-        document.getElementById("error").textContent = "Kunci salah!";
-      }
+  window.checkPassword = function() {
+    const input = document.getElementById("keyInput").value;
+    if (input === "Zen123") {
+      document.getElementById("login").classList.add("hidden");
+      document.getElementById("main").classList.remove("hidden");
+    } else {
+      document.getElementById("wrong").textContent = "Password salah.";
+    }
+  }
+
+  document.getElementById("uploadForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    const file = document.getElementById("fileInput").files[0];
+    const judul = document.getElementById("judul").value;
+    const deskripsi = document.getElementById("deskripsi").value;
+    const filename = Date.now() + "_" + file.name;
+
+    const { data, error } = await supabase.storage.from(bucket).upload(filename, file);
+    if (error) {
+      alert("Gagal upload: " + error.message);
+      return;
     }
 
-    document.getElementById("link-form").addEventListener("submit", async function (e) {
-      e.preventDefault();
-      const title = document.getElementById("title").value;
-      const url = document.getElementById("url").value;
+    const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(filename);
+    const link = publicData.publicUrl;
 
-      try {
-        await addDoc(linksRef, {
-          title: title,
-          url: url,
-          createdAt: new Date()
-        });
-        document.getElementById("title").value = "";
-        document.getElementById("url").value = "";
-        loadLinks();
-      } catch (error) {
-        alert("Gagal menyimpan link.");
-        console.error(error);
-      }
-    });
+    const div = document.createElement("div");
+    div.className = "file-item";
+    div.innerHTML = `<b>${judul}</b><br><a href="${link}" target="_blank">${link}</a><br><small>${deskripsi}</small>`;
+    document.getElementById("result").prepend(div);
 
-    async function loadLinks() {
-      const listContainer = document.getElementById("link-list");
-      listContainer.innerHTML = "<p>Memuat link...</p>";
-
-      const q = query(linksRef, orderBy("createdAt", "desc"));
-      const querySnapshot = await getDocs(q);
-      listContainer.innerHTML = "";
-
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        const div = document.createElement("div");
-        div.className = "link-item";
-        div.innerHTML = `<strong>${data.title}</strong><br><a href="${data.url}" target="_blank">${data.url}</a>`;
-        listContainer.appendChild(div);
-      });
-    }
-  </script>
+    document.getElementById("uploadForm").reset();
+  });
+</script>
 </body>
 </html>
