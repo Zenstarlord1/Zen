@@ -2,107 +2,78 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Upload File ke Supabase</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Penyimpan Link</title>
   <style>
-    body {
-      font-family: sans-serif;
-      background: #f7f7f7;
-      padding: 20px;
-    }
-    .container {
-      max-width: 500px;
-      margin: auto;
-      background: white;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    input, textarea, button {
-      width: 100%;
-      padding: 10px;
-      margin: 10px 0;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-    }
-    button {
-      background-color: #2d8fdd;
-      color: white;
-      font-weight: bold;
-      cursor: pointer;
-      border: none;
-    }
+    body { font-family: sans-serif; background: #f2f2f2; margin: 0; padding: 20px; }
+    .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    input, textarea, button { width: 100%; padding: 10px; margin: 10px 0; border-radius: 8px; border: 1px solid #ccc; }
+    button { background: #007bff; color: white; font-weight: bold; cursor: pointer; border: none; }
     .hidden { display: none; }
-    .file-item {
-      background: #eaeaea;
-      padding: 12px;
-      margin-top: 10px;
-      border-radius: 8px;
-    }
+    .link-item { background: #eee; padding: 12px; border-radius: 8px; margin-top: 10px; }
   </style>
 </head>
 <body>
 
-<div class="container" id="login">
-  <h3>Masukkan Kunci Akses</h3>
-  <input type="password" id="keyInput" placeholder="Password...">
+<div class="container" id="login-screen">
+  <h3>Masukkan Kunci</h3>
+  <input type="password" id="password" placeholder="Password...">
   <button onclick="checkPassword()">Masuk</button>
-  <p id="wrong" style="color:red;"></p>
+  <p id="error" style="color:red;"></p>
 </div>
 
-<div class="container hidden" id="main">
-  <h2>Upload File</h2>
-  <form id="uploadForm">
-    <input type="file" id="fileInput" required />
-    <input type="text" id="judul" placeholder="Judul file" required />
-    <textarea id="deskripsi" placeholder="Deskripsi (opsional)"></textarea>
-    <button type="submit">Upload & Simpan</button>
+<div class="container hidden" id="main-screen">
+  <h2>Tambah Link</h2>
+  <form id="link-form">
+    <input type="text" id="title" placeholder="Judul" required>
+    <input type="url" id="url" placeholder="URL Link" required>
+    <textarea id="desc" placeholder="Deskripsi singkat (opsional)"></textarea>
+    <button type="submit">Simpan Link</button>
   </form>
-  <div id="result"></div>
+  <div id="link-list"></div>
 </div>
 
-<script type="module">
-  import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
-
-  const supabaseUrl = "https://fymvziordozgxawrtcqx.supabase.co";
-  const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5bXZ6aW9yZG96Z3hhd3J0Y3F4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk3NDgwOTIsImV4cCI6MjA2NTMyNDA5Mn0.FJU-oYOxfgMWrNg-62i_YybtxJC4l4w7ivtpp8EtPBc";
-  const supabase = createClient(supabaseUrl, supabaseKey);
-  const bucket = "yes";
-
-  window.checkPassword = function() {
-    const input = document.getElementById("keyInput").value;
-    if (input === "Zen123") {
-      document.getElementById("login").classList.add("hidden");
-      document.getElementById("main").classList.remove("hidden");
+<script>
+  window.checkPassword = function () {
+    const pw = document.getElementById("password").value;
+    if (pw === "Zen123") {
+      document.getElementById("login-screen").classList.add("hidden");
+      document.getElementById("main-screen").classList.remove("hidden");
+      loadLinks();
     } else {
-      document.getElementById("wrong").textContent = "Password salah.";
+      document.getElementById("error").textContent = "Password salah.";
     }
   }
 
-  document.getElementById("uploadForm").addEventListener("submit", async function(e) {
+  function saveToLocal(linkObj) {
+    const data = JSON.parse(localStorage.getItem("savedLinks") || "[]");
+    data.unshift(linkObj);
+    localStorage.setItem("savedLinks", JSON.stringify(data));
+  }
+
+  function loadLinks() {
+    const data = JSON.parse(localStorage.getItem("savedLinks") || "[]");
+    const list = document.getElementById("link-list");
+    list.innerHTML = "";
+    data.forEach((item) => {
+      const div = document.createElement("div");
+      div.className = "link-item";
+      div.innerHTML = `<strong>${item.title}</strong><br><a href="${item.url}" target="_blank">${item.url}</a><br><small>${item.desc || ""}</small>`;
+      list.appendChild(div);
+    });
+  }
+
+  document.getElementById("link-form").addEventListener("submit", function(e) {
     e.preventDefault();
-    const file = document.getElementById("fileInput").files[0];
-    const judul = document.getElementById("judul").value;
-    const deskripsi = document.getElementById("deskripsi").value;
-    const filename = Date.now() + "_" + file.name;
-
-    const { data, error } = await supabase.storage.from(bucket).upload(filename, file);
-    if (error) {
-      alert("Gagal upload: " + error.message);
-      return;
-    }
-
-    const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(filename);
-    const link = publicData.publicUrl;
-
-    const div = document.createElement("div");
-    div.className = "file-item";
-    div.innerHTML = `<b>${judul}</b><br><a href="${link}" target="_blank">${link}</a><br><small>${deskripsi}</small>`;
-    document.getElementById("result").prepend(div);
-
-    document.getElementById("uploadForm").reset();
+    const title = document.getElementById("title").value;
+    const url = document.getElementById("url").value;
+    const desc = document.getElementById("desc").value;
+    saveToLocal({ title, url, desc });
+    document.getElementById("link-form").reset();
+    loadLinks();
   });
 </script>
+
 </body>
 </html>
