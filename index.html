@@ -1,85 +1,141 @@
 <!DOCTYPE html>
-<html lang="id">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Submit Link & Gambar</title>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+  <title>Zen Uploader</title>
   <style>
-    body { font-family: sans-serif; background: #eee; padding: 20px; }
-    .box { background: #fff; padding: 20px; border-radius: 10px; max-width: 500px; margin: auto; box-shadow: 0 0 10px rgba(0,0,0,0.2); }
-    input { width: 100%; padding: 10px; margin: 10px 0; border-radius: 6px; border: 1px solid #ccc; }
-    button { padding: 10px; width: 100%; background: #4caf50; color: white; border: none; border-radius: 6px; }
-    .hidden { display: none; }
-    .error { color: red; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      text-align: center;
+    }
+    input, button {
+      margin: 5px;
+      padding: 10px;
+    }
+    .hidden {
+      display: none;
+    }
+    img {
+      max-height: 100px;
+      margin: 5px;
+    }
   </style>
 </head>
 <body>
+  <div id="login-screen">
+    <h2>Masukkan Password</h2>
+    <input type="password" id="passwordInput" placeholder="Password">
+    <button onclick="checkPassword()">Masuk</button>
+    <p id="loginError" style="color: red;"></p>
+  </div>
 
-<div class="box" id="loginBox">
-  <h3>Masukkan Password</h3>
-  <input type="password" id="pwInput" placeholder="Password...">
-  <button onclick="checkPassword()">Masuk</button>
-  <p class="error" id="pwError"></p>
-</div>
+  <div class="container hidden" id="main-screen">
+    <h2>Upload Foto dan Link</h2>
+    <input type="file" id="fileInput" accept="image/*">
+    <input type="text" id="linkInput" placeholder="Masukkan link di sini">
+    <button id="uploadButton">Upload</button>
+    <p id="uploadStatus"></p>
+    <div id="uploadedData"></div>
+  </div>
 
-<div class="box hidden" id="formBox">
-  <h3>Input Data</h3>
-  <input type="text" id="imgUrl" placeholder="Link Gambar (URL)">
-  <input type="text" id="targetUrl" placeholder="Link Tujuan (URL)">
-  <button onclick="submitData()">Submit</button>
-  <p id="statusMsg"></p>
-</div>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+    import { getDatabase, ref, push, set } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+    import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-storage.js";
 
-<script>
-  // Firebase config
-  const firebaseConfig = {
-    apiKey: "AIzaSyDOFcgj8ymBVbWsOWr0oTMArn09fBumnv4",
-    authDomain: "zennowser.firebaseapp.com",
-    databaseURL: "https://zennowser-default-rtdb.firebaseio.com",
-    projectId: "zennowser",
-    storageBucket: "zennowser.appspot.com",
-    messagingSenderId: "864961650815",
-    appId: "1:864961650815:web:94c0a8f902de040a7d5f4a"
-  };
+    const firebaseConfig = {
+      apiKey: "AIzaSyDOFcgj8ymBVbWsOWr0oTMArn09fBumnv4",
+      authDomain: "zennowser.firebaseapp.com",
+      projectId: "zennowser",
+      storageBucket: "zennowser.appspot.com",
+      messagingSenderId: "864961650815",
+      appId: "1:864961650815:web:94c0a8f902de040a7d5f4a",
+      measurementId: "G-572BPMHMVS",
+      databaseURL: "https://zennowser-default-rtdb.firebaseio.com"
+    };
 
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
-  const auth = firebase.auth();
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const database = getDatabase(app);
+    const storage = getStorage(app);
 
-  function checkPassword() {
-    const pw = document.getElementById('pwInput').value;
-    if (pw === 'Zen10') {
-      auth.signInAnonymously().then(() => {
-        document.getElementById('loginBox').classList.add('hidden');
-        document.getElementById('formBox').classList.remove('hidden');
-      });
-    } else {
-      document.getElementById('pwError').innerText = "Password salah!";
+    function checkPassword() {
+      const password = document.getElementById("passwordInput").value;
+      if (password === "Zen10") {
+        signInAnonymously(auth)
+          .then(() => {
+            sessionStorage.setItem("loggedIn", "true");
+            document.getElementById("login-screen").classList.add("hidden");
+            document.getElementById("main-screen").classList.remove("hidden");
+            loadUploadedData();
+          })
+          .catch((error) => {
+            document.getElementById("loginError").textContent = "Gagal login anon.";
+          });
+      } else {
+        document.getElementById("loginError").textContent = "Password salah.";
+      }
     }
-  }
 
-  function submitData() {
-    const img = document.getElementById('imgUrl').value.trim();
-    const link = document.getElementById('targetUrl').value.trim();
-    const status = document.getElementById('statusMsg');
+    document.getElementById("uploadButton").addEventListener("click", () => {
+      const file = document.getElementById("fileInput").files[0];
+      const link = document.getElementById("linkInput").value;
+      const status = document.getElementById("uploadStatus");
 
-    if (img && link) {
-      db.ref('zen10-links').push({ image: img, link: link })
-        .then(() => {
-          status.innerText = "✅ Berhasil disimpan!";
-          document.getElementById('imgUrl').value = '';
-          document.getElementById('targetUrl').value = '';
-        })
-        .catch(err => {
-          status.innerText = "❌ Gagal menyimpan: " + err.message;
+      if (!file || !link) {
+        status.textContent = "Lengkapi semua field.";
+        return;
+      }
+
+      const storageRef = sRef(storage, "images/" + file.name);
+      uploadBytes(storageRef, file).then((snapshot) => {
+        getDownloadURL(snapshot.ref).then((url) => {
+          const dataRef = push(ref(database, "zen10-links"));
+          set(dataRef, {
+            imageUrl: url,
+            link: link
+          }).then(() => {
+            status.textContent = "Upload berhasil!";
+            document.getElementById("fileInput").value = "";
+            document.getElementById("linkInput").value = "";
+            loadUploadedData(); // refresh data
+          });
         });
-    } else {
-      status.innerText = "❗ Isi semua field!";
-    }
-  }
-</script>
+      }).catch(() => {
+        status.textContent = "Upload gagal.";
+      });
+    });
 
+    function loadUploadedData() {
+      import("https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js").then(({ getDatabase, ref, get, child }) => {
+        const dbRef = ref(database);
+        get(child(dbRef, "zen10-links")).then((snapshot) => {
+          const container = document.getElementById("uploadedData");
+          container.innerHTML = "";
+          if (snapshot.exists()) {
+            const data = snapshot.val();
+            Object.values(data).forEach(entry => {
+              const div = document.createElement("div");
+              div.innerHTML = `
+                <img src="${entry.imageUrl}" alt="img"><br>
+                <a href="${entry.link}" target="_blank">${entry.link}</a>
+                <hr>
+              `;
+              container.appendChild(div);
+            });
+          }
+        });
+      });
+    }
+
+    window.addEventListener("load", () => {
+      if (sessionStorage.getItem("loggedIn") === "true") {
+        document.getElementById("login-screen").classList.add("hidden");
+        document.getElementById("main-screen").classList.remove("hidden");
+        signInAnonymously(auth).then(loadUploadedData);
+      }
+    });
+  </script>
 </body>
 </html>
