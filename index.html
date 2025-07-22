@@ -1,79 +1,93 @@
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Penyimpan Link</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload Link</title>
   <style>
-    body { font-family: sans-serif; background: #f2f2f2; margin: 0; padding: 20px; }
-    .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    input, textarea, button { width: 100%; padding: 10px; margin: 10px 0; border-radius: 8px; border: 1px solid #ccc; }
-    button { background: #007bff; color: white; font-weight: bold; cursor: pointer; border: none; }
-    .hidden { display: none; }
-    .link-item { background: #eee; padding: 12px; border-radius: 8px; margin-top: 10px; }
+    body { font-family: Arial, sans-serif; background-color: #f2f2f2; }
+    .container { max-width: 600px; margin: auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    input[type="text"], input[type="password"], button {
+      width: 100%; padding: 10px; margin: 10px 0;
+      border-radius: 4px; border: 1px solid #ccc;
+    }
+    button { background-color: #28a745; color: white; border: none; cursor: pointer; }
+    a { display: block; margin: 5px 0; word-break: break-word; }
   </style>
 </head>
 <body>
 
-<div class="container" id="login-screen">
-  <h3>Masukkan Kunci</h3>
-  <input type="password" id="password" placeholder="Password...">
-  <button onclick="checkPassword()">Masuk</button>
-  <p id="error" style="color:red;"></p>
-</div>
+  <div class="container" id="login-screen">
+    <h3>Masukkan Password</h3>
+    <input type="password" id="password" placeholder="Password...">
+    <button onclick="checkPassword()">Masuk</button>
+    <p id="error" style="color:red;"></p>
+  </div>
 
-<div class="container hidden" id="main-screen">
-  <h2>Tambah Link</h2>
-  <form id="link-form">
-    <input type="text" id="title" placeholder="Judul" required>
-    <input type="url" id="url" placeholder="URL Link" required>
-    <textarea id="desc" placeholder="Deskripsi singkat (opsional)"></textarea>
-    <button type="submit">Simpan Link</button>
-  </form>
-  <div id="link-list"></div>
-</div>
+  <div class="container" id="main-screen" style="display:none;">
+    <h3>Upload Link</h3>
+    <input type="text" id="linkInput" placeholder="Masukkan link (https://...)">
+    <button onclick="uploadData()">Upload</button>
+    <hr>
+    <h4>Daftar Link</h4>
+    <div id="dataList">Loading...</div>
+  </div>
 
-<script>
-  window.checkPassword = function () {
-    const pw = document.getElementById("password").value;
-    if (pw === "Zen123") {
-      document.getElementById("login-screen").classList.add("hidden");
-      document.getElementById("main-screen").classList.remove("hidden");
-      loadLinks();
-    } else {
-      document.getElementById("error").textContent = "Password salah.";
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+    import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCFYGEHBHvPC_djgsZeAaYEh5UTv21fmHE",
+      authDomain: "zenstatlord.firebaseapp.com",
+      databaseURL: "https://zenstatlord-default-rtdb.firebaseio.com",
+      projectId: "zenstatlord",
+      storageBucket: "zenstatlord.firebasestorage.app",
+      messagingSenderId: "207937844507",
+      appId: "1:207937844507:web:e3d832a5c92955e5240fbe",
+      measurementId: "G-6CQMF07Y33"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    window.checkPassword = function () {
+      const pw = document.getElementById('password').value;
+      if (pw === 'Zen10') {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('main-screen').style.display = 'block';
+        loadData();
+      } else {
+        document.getElementById('error').textContent = 'Password salah.';
+      }
+    };
+
+    window.uploadData = function () {
+      const link = document.getElementById('linkInput').value.trim();
+      if (!link) return alert('Masukkan link terlebih dahulu.');
+      push(ref(db, 'zen10-links/'), { link }).then(() => {
+        document.getElementById('linkInput').value = '';
+      });
+    };
+
+    function loadData() {
+      const dataList = document.getElementById('dataList');
+      onValue(ref(db, 'zen10-links/'), (snapshot) => {
+        const data = snapshot.val();
+        let html = '';
+
+        if (data) {
+          Object.values(data).reverse().forEach(item => {
+            html += `<a href="${item.link}" target="_blank">${item.link}</a>`;
+          });
+        } else {
+          html = 'Belum ada data.';
+        }
+
+        dataList.innerHTML = html;
+      });
     }
-  }
-
-  function saveToLocal(linkObj) {
-    const data = JSON.parse(localStorage.getItem("savedLinks") || "[]");
-    data.unshift(linkObj);
-    localStorage.setItem("savedLinks", JSON.stringify(data));
-  }
-
-  function loadLinks() {
-    const data = JSON.parse(localStorage.getItem("savedLinks") || "[]");
-    const list = document.getElementById("link-list");
-    list.innerHTML = "";
-    data.forEach((item) => {
-      const div = document.createElement("div");
-      div.className = "link-item";
-      div.innerHTML = `<strong>${item.title}</strong><br><a href="${item.url}" target="_blank">${item.url}</a><br><small>${item.desc || ""}</small>`;
-      list.appendChild(div);
-    });
-  }
-
-  document.getElementById("link-form").addEventListener("submit", function(e) {
-    e.preventDefault();
-    const title = document.getElementById("title").value;
-    const url = document.getElementById("url").value;
-    const desc = document.getElementById("desc").value;
-    saveToLocal({ title, url, desc });
-    document.getElementById("link-form").reset();
-    loadLinks();
-  });
-</script>
+  </script>
 
 </body>
 </html>
