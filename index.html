@@ -3,48 +3,28 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Upload Link dan Gambar</title>
+  <title>Upload Gambar & Link</title>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage.js"></script>
   <style>
-    body { font-family: sans-serif; background: #f8f8f8; margin: 0; padding: 0; }
-    .container { max-width: 600px; margin: 40px auto; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    body { font-family: sans-serif; background: #f8f8f8; margin: 0; padding: 20px; }
+    .container { max-width: 600px; margin: auto; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
     input, button { width: 100%; padding: 12px; margin-top: 10px; border-radius: 6px; border: 1px solid #ccc; }
     button { background: #28a745; color: white; border: none; cursor: pointer; }
-    .hidden { display: none; }
-    .error { color: red; }
-    .gallery-item { margin: 10px 0; border: 1px solid #ddd; padding: 10px; border-radius: 8px; background: #fafafa; }
-    .gallery-item img { max-width: 100%; border-radius: 6px; }
-    .link-btn { margin-top: 8px; padding: 8px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; width: auto; }
+    img { max-width: 100%; border-radius: 10px; }
+    a { word-break: break-all; }
   </style>
 </head>
 <body>
-
-  <div class="container" id="login-screen">
-    <h3>Masukkan Password</h3>
-    <input type="password" id="password" placeholder="Password...">
-    <button onclick="checkPassword()">Masuk</button>
-    <p id="error" class="error"></p>
-  </div>
-
-  <div class="container hidden" id="main-screen">
-    <h2>Upload Gambar & Link</h2>
-
-    <h4>Upload dari File</h4>
-    <input type="file" id="fileInput" accept="image/*">
-    <input type="text" id="linkFileInput" placeholder="Link terkait">
-    <button onclick="uploadFile()">Upload File</button>
-
-    <h4>Upload dari URL Gambar</h4>
+  <div class="container">
+    <h3>Upload Link & Gambar</h3>
     <input type="text" id="imageUrlInput" placeholder="URL Gambar (https://...)">
-    <input type="text" id="linkUrlInput" placeholder="Link terkait (https://...)">
-    <button onclick="uploadFromURL()">Upload URL</button>
-
-    <p id="uploadStatus"></p>
-
-    <h3>Hasil Upload:</h3>
-    <div id="gallery">Loading...</div>
+    <input type="text" id="linkInput" placeholder="Link Terkait (https://...)">
+    <button id="uploadButton">Kirim</button>
+    <hr>
+    <h4>Hasil Upload</h4>
+    <div id="uploadStatus">Loading...</div>
   </div>
 
   <script>
@@ -53,98 +33,56 @@
       authDomain: "zennowser.firebaseapp.com",
       databaseURL: "https://zennowser-default-rtdb.firebaseio.com",
       projectId: "zennowser",
-      storageBucket: "zennowser.appspot.com",
+      storageBucket: "zennowser.firebasestorage.app",
       messagingSenderId: "864961650815",
-      appId: "1:864961650815:web:94c0a8f902de040a7d5f4a"
+      appId: "1:864961650815:web:94c0a8f902de040a7d5f4a",
+      measurementId: "G-572BPMHMVS"
     };
 
     const app = firebase.initializeApp(firebaseConfig);
-    const storage = firebase.storage();
-    const database = firebase.database();
+    const database = firebase.database(app);
 
-    function checkPassword() {
-      const pw = document.getElementById("password").value;
-      if (pw === "Zen10") {
-        document.getElementById("login-screen").classList.add("hidden");
-        document.getElementById("main-screen").classList.remove("hidden");
-        loadGallery();
-      } else {
-        document.getElementById("error").textContent = "Password salah!";
-      }
-    }
-
-    function uploadFile() {
-      const file = document.getElementById('fileInput').files[0];
-      const link = document.getElementById('linkFileInput').value;
-
-      if (file && link) {
-        const storageRef = storage.ref('zen10-uploads/' + file.name);
-        storageRef.put(file).then(snapshot => {
-          storageRef.getDownloadURL().then(downloadURL => {
-            database.ref('zen10-links/').push({
-              imageUrl: downloadURL,
-              link: link
-            }).then(() => {
-              showMessage("File berhasil diupload dan link disimpan!");
-              document.getElementById('fileInput').value = '';
-              document.getElementById('linkFileInput').value = '';
-              loadGallery();
-            });
-          });
-        }).catch(error => {
-          showMessage("Gagal upload file: " + error.message);
-        });
-      } else {
-        alert('Pilih file dan masukkan link.');
-      }
-    }
-
-    function uploadFromURL() {
+    document.getElementById('uploadButton').addEventListener('click', () => {
       const imageUrl = document.getElementById('imageUrlInput').value;
-      const link = document.getElementById('linkUrlInput').value;
+      const link = document.getElementById('linkInput').value;
 
       if (imageUrl && link) {
         database.ref('zen10-links/').push({
           imageUrl: imageUrl,
           link: link
         }).then(() => {
-          showMessage("URL berhasil disimpan!");
+          alert('Berhasil disimpan!');
           document.getElementById('imageUrlInput').value = '';
-          document.getElementById('linkUrlInput').value = '';
-          loadGallery();
-        }).catch(error => {
-          showMessage("Gagal menyimpan URL: " + error.message);
+          document.getElementById('linkInput').value = '';
+        }).catch((error) => {
+          alert('Gagal: ' + error.message);
         });
       } else {
         alert('Isi semua kolom!');
       }
-    }
+    });
 
-    function showMessage(msg) {
-      document.getElementById('uploadStatus').textContent = msg;
-    }
+    // Render data
+    const uploadStatus = document.getElementById('uploadStatus');
+    database.ref('zen10-links/').on('value', (snapshot) => {
+      const data = snapshot.val();
+      let html = '';
 
-    function loadGallery() {
-      const gallery = document.getElementById("gallery");
-      gallery.innerHTML = "Loading...";
-      database.ref('zen10-links/').once('value', snapshot => {
-        gallery.innerHTML = "";
-        const data = snapshot.val();
-        if (data) {
-          Object.values(data).reverse().forEach(item => {
-            const div = document.createElement("div");
-            div.className = "gallery-item";
-            div.innerHTML = `
-              <img src="${item.imageUrl}" alt="Image">
-              <a href="${item.link}" target="_blank"><button class="link-btn">Lihat Link</button></a>
-            `;
-            gallery.appendChild(div);
-          });
-        } else {
-          gallery.innerHTML = "<p>Belum ada data.</p>";
-        }
-      });
-    }
+      if (data) {
+        Object.values(data).reverse().forEach(entry => {
+          html += `
+            <div style="margin-bottom:20px;">
+              <img src="${entry.imageUrl}" alt="Gambar"/>
+              <br/>
+              <a href="${entry.link}" target="_blank">${entry.link}</a>
+            </div>
+          `;
+        });
+        uploadStatus.innerHTML = html;
+      } else {
+        uploadStatus.textContent = 'Belum ada data.';
+      }
+    });
   </script>
 </body>
 </html>
