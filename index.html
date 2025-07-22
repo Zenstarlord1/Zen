@@ -1,102 +1,79 @@
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Link Saver</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Penyimpan Link</title>
   <style>
-    body {
-      font-family: sans-serif;
-      padding: 20px;
-      background: #f0f0f0;
-    }
-    #app { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 10px; }
-    input, button {
-      width: 100%;
-      padding: 10px;
-      margin-top: 10px;
-      font-size: 16px;
-    }
-    .link-item {
-      margin-top: 10px;
-      padding: 10px;
-      background: #e3e3ff;
-      border-radius: 5px;
-    }
+    body { font-family: sans-serif; background: #f2f2f2; margin: 0; padding: 20px; }
+    .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    input, textarea, button { width: 100%; padding: 10px; margin: 10px 0; border-radius: 8px; border: 1px solid #ccc; }
+    button { background: #007bff; color: white; font-weight: bold; cursor: pointer; border: none; }
+    .hidden { display: none; }
+    .link-item { background: #eee; padding: 12px; border-radius: 8px; margin-top: 10px; }
   </style>
 </head>
 <body>
-  <div id="app">
-    <div id="login">
-      <h2>Masukkan Password</h2>
-      <input type="password" id="password" placeholder="Password" />
-      <button onclick="checkPassword()">Login</button>
-    </div>
 
-    <div id="main" style="display:none;">
-      <h2>Simpan Link</h2>
-      <input type="text" id="linkInput" placeholder="Masukkan URL" />
-      <button onclick="saveLink()">Simpan</button>
-      <div id="linkList"></div>
-    </div>
-  </div>
+<div class="container" id="login-screen">
+  <h3>Masukkan Kunci</h3>
+  <input type="password" id="password" placeholder="Password...">
+  <button onclick="checkPassword()">Masuk</button>
+  <p id="error" style="color:red;"></p>
+</div>
 
-  <!-- Firebase CDN -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+<div class="container hidden" id="main-screen">
+  <h2>Tambah Link</h2>
+  <form id="link-form">
+    <input type="text" id="title" placeholder="Judul" required>
+    <input type="url" id="url" placeholder="URL Link" required>
+    <textarea id="desc" placeholder="Deskripsi singkat (opsional)"></textarea>
+    <button type="submit">Simpan Link</button>
+  </form>
+  <div id="link-list"></div>
+</div>
 
-    // Firebase config (ZENSTATLORD)
-    const firebaseConfig = {
-      apiKey: "AIzaSyCFYGEHBHvPC_djgsZeAaYEh5UTv21fmHE",
-      authDomain: "zenstatlord.firebaseapp.com",
-      databaseURL: "https://zenstatlord-default-rtdb.firebaseio.com",
-      projectId: "zenstatlord",
-      storageBucket: "zenstatlord.firebasestorage.app",
-      messagingSenderId: "207937844507",
-      appId: "1:207937844507:web:e0fce716325164a1240fbe",
-      measurementId: "G-GLSWV3S82F"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    async function saveLink() {
-      const link = document.getElementById("linkInput").value.trim();
-      if (!link) return alert("Link kosong");
-
-      await addDoc(collection(db, "links"), {
-        url: link,
-        timestamp: new Date()
-      });
-
-      document.getElementById("linkInput").value = "";
+<script>
+  window.checkPassword = function () {
+    const pw = document.getElementById("password").value;
+    if (pw === "Zen123") {
+      document.getElementById("login-screen").classList.add("hidden");
+      document.getElementById("main-screen").classList.remove("hidden");
       loadLinks();
+    } else {
+      document.getElementById("error").textContent = "Password salah.";
     }
+  }
 
-    async function loadLinks() {
-      const linkList = document.getElementById("linkList");
-      linkList.innerHTML = "";
+  function saveToLocal(linkObj) {
+    const data = JSON.parse(localStorage.getItem("savedLinks") || "[]");
+    data.unshift(linkObj);
+    localStorage.setItem("savedLinks", JSON.stringify(data));
+  }
 
-      const querySnapshot = await getDocs(collection(db, "links"));
-      querySnapshot.forEach(doc => {
-        const data = doc.data();
-        const div = document.createElement("div");
-        div.className = "link-item";
-        div.innerHTML = `<a href="${data.url}" target="_blank">${data.url}</a>`;
-        linkList.appendChild(div);
-      });
-    }
+  function loadLinks() {
+    const data = JSON.parse(localStorage.getItem("savedLinks") || "[]");
+    const list = document.getElementById("link-list");
+    list.innerHTML = "";
+    data.forEach((item) => {
+      const div = document.createElement("div");
+      div.className = "link-item";
+      div.innerHTML = `<strong>${item.title}</strong><br><a href="${item.url}" target="_blank">${item.url}</a><br><small>${item.desc || ""}</small>`;
+      list.appendChild(div);
+    });
+  }
 
-    function checkPassword() {
-      const pw = document.getElementById("password").value;
-      if (pw === "Zen10") {
-        document.getElementById("login").style.display = "none";
-        document.getElementById("main").style.display = "block";
-        loadLinks();
-      } else {
-        alert("Password salah");
-      }
-    }
-  </script>
+  document.getElementById("link-form").addEventListener("submit", function(e) {
+    e.preventDefault();
+    const title = document.getElementById("title").value;
+    const url = document.getElementById("url").value;
+    const desc = document.getElementById("desc").value;
+    saveToLocal({ title, url, desc });
+    document.getElementById("link-form").reset();
+    loadLinks();
+  });
+</script>
+
 </body>
 </html>
