@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Penyimpan Link Online</title>
+  <title>Penyimpan Link Online (Supabase)</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body { font-family: sans-serif; background: #f2f2f2; margin: 0; padding: 20px; }
     .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
@@ -33,25 +34,12 @@
   <div id="link-list"></div>
 </div>
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
-  import { getFirestore, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+<script>
+  const supabaseUrl = "https://ndyrotdundxydwawabqp.supabase.co";
+  const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5keXJvdGR1bmR4eWR3YXdhYnFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMxNjYyMjgsImV4cCI6MjA2ODc0MjIyOH0.wdIHF2NaI_jruMxGl04AJgOwIKw1vwyto7uHJwUwNGM";
+  const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyCFYGEHBHvPC_djgsZeAaYEh5UTv21fmHE",
-    authDomain: "zenstatlord.firebaseapp.com",
-    projectId: "zenstatlord",
-    storageBucket: "zenstatlord.firebasestorage.app",
-    messagingSenderId: "207937844507",
-    appId: "1:207937844507:web:e0fce716325164a1240fbe",
-    measurementId: "G-GLSWV3S82F"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-  const linksRef = collection(db, "savedLinks");
-
-  window.checkPassword = function () {
+  function checkPassword() {
     const pw = document.getElementById("password").value;
     if (pw === "Zen123") {
       document.getElementById("login-screen").classList.add("hidden");
@@ -60,7 +48,7 @@
     } else {
       document.getElementById("error").textContent = "Password salah.";
     }
-  };
+  }
 
   document.getElementById("link-form").addEventListener("submit", async function(e) {
     e.preventDefault();
@@ -68,13 +56,7 @@
     const url = document.getElementById("url").value;
     const desc = document.getElementById("desc").value;
 
-    await addDoc(linksRef, {
-      title: title,
-      url: url,
-      desc: desc,
-      createdAt: new Date()
-    });
-
+    await supabase.from("savedlinks").insert([{ title, url, desc }]);
     document.getElementById("link-form").reset();
     loadLinks();
   });
@@ -83,15 +65,21 @@
     const list = document.getElementById("link-list");
     list.innerHTML = "<p>Memuat data...</p>";
 
-    const q = query(linksRef, orderBy("createdAt", "desc"));
-    const snapshot = await getDocs(q);
-    list.innerHTML = "";
+    const { data, error } = await supabase
+      .from("savedlinks")
+      .select("*")
+      .order("created_at", { ascending: false });
 
-    snapshot.forEach((doc) => {
-      const data = doc.data();
+    if (error) {
+      list.innerHTML = `<p style="color:red;">Gagal memuat data: ${error.message}</p>`;
+      return;
+    }
+
+    list.innerHTML = "";
+    data.forEach((item) => {
       const div = document.createElement("div");
       div.className = "link-item";
-      div.innerHTML = `<strong>${data.title}</strong><br><a href="${data.url}" target="_blank">${data.url}</a><br><small>${data.desc || ""}</small>`;
+      div.innerHTML = `<strong>${item.title}</strong><br><a href="${item.url}" target="_blank">${item.url}</a><br><small>${item.desc || ""}</small>`;
       list.appendChild(div);
     });
   }
