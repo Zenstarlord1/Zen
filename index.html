@@ -1,65 +1,186 @@
-
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <title>Upload with Auth</title>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Upload & View Gambar</title>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background-color: #f2f2f2; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 40px auto; padding: 20px; background: white; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    input[type="file"], input[type="text"], input[type="password"] {
+      width: 100%; margin: 10px 0; padding: 12px;
+      border: 1px solid #ccc; border-radius: 6px;
+    }
+    button {
+      padding: 12px; width: 100%;
+      background-color: #28a745; color: white;
+      border: none; cursor: pointer; border-radius: 6px;
+    }
+    .hidden { display: none; }
+    .gallery { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 15px; }
+    .gallery-item {
+      width: 120px; text-align: center; font-size: 12px;
+    }
+    .gallery-item img {
+      width: 100%; height: auto; border-radius: 6px;
+    }
+    .error { color: red; }
+    .link-btn {
+      margin-top: 5px;
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      font-size: 12px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
-  <h2>Masukkan Password</h2>
-  <input type="password" id="passwordInput" placeholder="Password">
-  <button onclick="login()">Masuk</button>
 
-  <div id="uploadSection" style="display:none;">
-    <h3>Upload Data ke Firebase</h3>
-    <textarea id="dataInput" placeholder="Masukkan data JSON di sini..."></textarea><br>
-    <button onclick="uploadData()">Upload</button>
+  <!-- Login -->
+  <div class="container" id="login-screen">
+    <h3>Masukkan Password</h3>
+    <input type="password" id="password" placeholder="Password...">
+    <button onclick="checkPassword()">Masuk</button>
+    <p id="error" class="error"></p>
+  </div>
+
+  <!-- Main Upload UI -->
+  <div class="container hidden" id="main-screen">
+    <h2>Upload Gambar & Link</h2>
+
+    <h4>Upload File Gambar dari Perangkat</h4>
+    <input type="file" id="fileInput" accept="image/*">
+    <input type="text" id="linkFileInput" placeholder="Masukkan link terkait">
+    <button onclick="uploadFile()">Upload File</button>
+
+    <hr>
+
+    <h4>Upload Gambar dari URL</h4>
+    <input type="text" id="imageUrlInput" placeholder="URL Gambar (https://...)">
+    <input type="text" id="linkUrlInput" placeholder="Link Terkait (https://...)">
+    <button onclick="uploadFromURL()">Upload URL</button>
+
+    <p id="uploadStatus"></p>
+
+    <!-- Gallery -->
+    <h3>Hasil Upload</h3>
+    <div class="gallery" id="gallery"></div>
   </div>
 
   <script>
+    // Firebase config (ganti sesuai milikmu)
     const firebaseConfig = {
       apiKey: "AIzaSyDOFcgj8ymBVbWsOWr0oTMArn09fBumnv4",
       authDomain: "zennowser.firebaseapp.com",
       databaseURL: "https://zennowser-default-rtdb.firebaseio.com",
       projectId: "zennowser",
-      storageBucket: "zennowser.firebasestorage.app",
+      storageBucket: "zennowser.appspot.com",
       messagingSenderId: "864961650815",
-      appId: "1:864961650815:web:94c0a8f902de040a7d5f4a",
-      measurementId: "G-572BPMHMVS"
+      appId: "1:864961650815:web:94c0a8f902de040a7d5f4a"
     };
 
-    firebase.initializeApp(firebaseConfig);
+    const app = firebase.initializeApp(firebaseConfig);
+    const storage = firebase.storage();
+    const database = firebase.database();
 
-    function login() {
-      const password = document.getElementById("passwordInput").value;
-      if (password === "Zen10") {
-        firebase.auth().signInAnonymously()
-          .then(() => {
-            document.getElementById("uploadSection").style.display = "block";
-            alert("Login berhasil!");
-          })
-          .catch((error) => {
-            alert("Login gagal: " + error.message);
-          });
+    function checkPassword() {
+      const pw = document.getElementById("password").value;
+      if (pw === "Zen10") {
+        sessionStorage.setItem("loggedIn", "true");
+        document.getElementById("login-screen").classList.add("hidden");
+        document.getElementById("main-screen").classList.remove("hidden");
+        loadGallery(); // load jika sudah login
       } else {
-        alert("Password salah!");
+        document.getElementById("error").textContent = "Password salah!";
       }
     }
 
-    function uploadData() {
-      const dataText = document.getElementById("dataInput").value;
-      try {
-        const jsonData = JSON.parse(dataText);
-        firebase.database().ref("uploads").push(jsonData)
-          .then(() => alert("Data berhasil di-upload"))
-          .catch((err) => alert("Gagal upload: " + err.message));
-      } catch (e) {
-        alert("Format JSON tidak valid.");
+    function uploadFile() {
+      const file = document.getElementById('fileInput').files[0];
+      const link = document.getElementById('linkFileInput').value;
+
+      if (file && link) {
+        const storageRef = storage.ref('zen10-uploads/' + file.name);
+        storageRef.put(file).then(snapshot => {
+          storageRef.getDownloadURL().then(downloadURL => {
+            database.ref('zen10-links/').push({
+              imageUrl: downloadURL,
+              link: link
+            }).then(() => {
+              showMessage("File berhasil diupload dan link disimpan!");
+              document.getElementById('fileInput').value = '';
+              document.getElementById('linkFileInput').value = '';
+              loadGallery(); // refresh list
+            });
+          });
+        }).catch(error => {
+          showMessage("Gagal upload file: " + error.message);
+        });
+      } else {
+        alert('Pilih file dan masukkan link.');
       }
     }
+
+    function uploadFromURL() {
+      const imageUrl = document.getElementById('imageUrlInput').value;
+      const link = document.getElementById('linkUrlInput').value;
+
+      if (imageUrl && link) {
+        database.ref('zen10-links/').push({
+          imageUrl: imageUrl,
+          link: link
+        }).then(() => {
+          showMessage("URL berhasil disimpan!");
+          document.getElementById('imageUrlInput').value = '';
+          document.getElementById('linkUrlInput').value = '';
+          loadGallery(); // refresh list
+        }).catch(error => {
+          showMessage("Gagal menyimpan URL: " + error.message);
+        });
+      } else {
+        alert('Isi semua kolom!');
+      }
+    }
+
+    function showMessage(msg) {
+      document.getElementById('uploadStatus').textContent = msg;
+    }
+
+    function loadGallery() {
+      const gallery = document.getElementById("gallery");
+      gallery.innerHTML = "Loading...";
+      database.ref('zen10-links/').once('value', snapshot => {
+        gallery.innerHTML = "";
+        const data = snapshot.val();
+        if (data) {
+          Object.values(data).reverse().forEach(item => {
+            const div = document.createElement("div");
+            div.className = "gallery-item";
+            div.innerHTML = `
+              <img src="${item.imageUrl}" alt="Image">
+              <a href="${item.link}" target="_blank"><button class="link-btn">Lihat Link</button></a>
+            `;
+            gallery.appendChild(div);
+          });
+        } else {
+          gallery.innerHTML = "<p>Tidak ada data.</p>";
+        }
+      });
+    }
+
+    window.addEventListener("load", () => {
+      if (sessionStorage.getItem("loggedIn") === "true") {
+        document.getElementById("login-screen").classList.add("hidden");
+        document.getElementById("main-screen").classList.remove("hidden");
+        loadGallery();
+      }
+    });
   </script>
 </body>
 </html>
