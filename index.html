@@ -1,48 +1,71 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Zen Uploader</title>
+  <title>Zen Upload</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      margin: 20px;
+      background: #111;
+      color: #fff;
       text-align: center;
+      padding: 30px;
     }
     input, button {
-      margin: 5px;
       padding: 10px;
+      margin: 10px;
+      font-size: 16px;
+      border-radius: 5px;
+    }
+    input[type="file"] {
+      border: none;
+    }
+    button {
+      cursor: pointer;
+      background: #007bff;
+      color: white;
+      border: none;
     }
     .hidden {
       display: none;
     }
     img {
-      max-height: 100px;
-      margin: 5px;
+      max-width: 100px;
+      margin: 10px;
+    }
+    .card {
+      background: #222;
+      padding: 15px;
+      border-radius: 10px;
+      margin: 10px auto;
+      width: 90%;
+      max-width: 400px;
     }
   </style>
 </head>
 <body>
+
   <div id="login-screen">
     <h2>Masukkan Password</h2>
     <input type="password" id="passwordInput" placeholder="Password">
-    <button onclick="checkPassword()">Masuk</button>
+    <br>
+    <button onclick="login()">Masuk</button>
     <p id="loginError" style="color: red;"></p>
   </div>
 
-  <div class="container hidden" id="main-screen">
-    <h2>Upload Foto dan Link</h2>
-    <input type="file" id="fileInput" accept="image/*">
-    <input type="text" id="linkInput" placeholder="Masukkan link di sini">
-    <button id="uploadButton">Upload</button>
+  <div id="main-screen" class="hidden">
+    <h2>Upload Gambar & Link</h2>
+    <input type="file" id="fileInput"><br>
+    <input type="text" id="linkInput" placeholder="Masukkan Link"><br>
+    <button id="uploadBtn">Upload</button>
     <p id="uploadStatus"></p>
-    <div id="uploadedData"></div>
+    <div id="dataContainer"></div>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
-    import { getDatabase, ref, push, set } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
     import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-storage.js";
+    import { getDatabase, ref, push, set, get, child } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDOFcgj8ymBVbWsOWr0oTMArn09fBumnv4",
@@ -56,84 +79,92 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const database = getDatabase(app);
-    const storage = getStorage(app);
+    const auth = getAuth();
+    const db = getDatabase();
+    const storage = getStorage();
 
-    function checkPassword() {
-      const password = document.getElementById("passwordInput").value;
-      if (password === "Zen10") {
-        signInAnonymously(auth)
-          .then(() => {
-            sessionStorage.setItem("loggedIn", "true");
-            document.getElementById("login-screen").classList.add("hidden");
-            document.getElementById("main-screen").classList.remove("hidden");
-            loadUploadedData();
-          })
-          .catch((error) => {
-            document.getElementById("loginError").textContent = "Gagal login anon.";
-          });
-      } else {
-        document.getElementById("loginError").textContent = "Password salah.";
-      }
-    }
+    const loginScreen = document.getElementById('login-screen');
+    const mainScreen = document.getElementById('main-screen');
+    const passwordInput = document.getElementById('passwordInput');
+    const loginError = document.getElementById('loginError');
+    const fileInput = document.getElementById('fileInput');
+    const linkInput = document.getElementById('linkInput');
+    const uploadStatus = document.getElementById('uploadStatus');
+    const dataContainer = document.getElementById('dataContainer');
 
-    document.getElementById("uploadButton").addEventListener("click", () => {
-      const file = document.getElementById("fileInput").files[0];
-      const link = document.getElementById("linkInput").value;
-      const status = document.getElementById("uploadStatus");
-
-      if (!file || !link) {
-        status.textContent = "Lengkapi semua field.";
+    function login() {
+      const password = passwordInput.value;
+      if (password !== "Zen10") {
+        loginError.textContent = "Password salah!";
         return;
       }
 
-      const storageRef = sRef(storage, "images/" + file.name);
-      uploadBytes(storageRef, file).then((snapshot) => {
-        getDownloadURL(snapshot.ref).then((url) => {
-          const dataRef = push(ref(database, "zen10-links"));
-          set(dataRef, {
-            imageUrl: url,
-            link: link
-          }).then(() => {
-            status.textContent = "Upload berhasil!";
-            document.getElementById("fileInput").value = "";
-            document.getElementById("linkInput").value = "";
-            loadUploadedData(); // refresh data
-          });
-        });
+      // Login anon
+      signInAnonymously(auth).then(() => {
+        loginScreen.classList.add('hidden');
+        mainScreen.classList.remove('hidden');
+        loadData();
       }).catch(() => {
-        status.textContent = "Upload gagal.";
-      });
-    });
-
-    function loadUploadedData() {
-      import("https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js").then(({ getDatabase, ref, get, child }) => {
-        const dbRef = ref(database);
-        get(child(dbRef, "zen10-links")).then((snapshot) => {
-          const container = document.getElementById("uploadedData");
-          container.innerHTML = "";
-          if (snapshot.exists()) {
-            const data = snapshot.val();
-            Object.values(data).forEach(entry => {
-              const div = document.createElement("div");
-              div.innerHTML = `
-                <img src="${entry.imageUrl}" alt="img"><br>
-                <a href="${entry.link}" target="_blank">${entry.link}</a>
-                <hr>
-              `;
-              container.appendChild(div);
-            });
-          }
-        });
+        loginError.textContent = "Gagal login ke Firebase!";
       });
     }
 
-    window.addEventListener("load", () => {
+    document.getElementById('uploadBtn').addEventListener('click', () => {
+      const file = fileInput.files[0];
+      const link = linkInput.value.trim();
+
+      if (!file || !link) {
+        uploadStatus.textContent = "Lengkapi file dan link!";
+        return;
+      }
+
+      const fileRef = sRef(storage, 'images/' + file.name);
+      uploadStatus.textContent = "Uploading...";
+
+      uploadBytes(fileRef, file).then(snapshot => {
+        return getDownloadURL(snapshot.ref);
+      }).then(url => {
+        return push(ref(db, 'zen10-links'), {
+          imageUrl: url,
+          link: link
+        });
+      }).then(() => {
+        uploadStatus.textContent = "Upload sukses!";
+        fileInput.value = "";
+        linkInput.value = "";
+        loadData();
+      }).catch(err => {
+        console.error(err);
+        uploadStatus.textContent = "Upload gagal!";
+      });
+    });
+
+    function loadData() {
+      get(child(ref(db), 'zen10-links')).then(snapshot => {
+        dataContainer.innerHTML = "";
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          Object.values(data).forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+              <img src="${item.imageUrl}" alt="img"><br>
+              <a href="${item.link}" target="_blank">${item.link}</a>
+            `;
+            dataContainer.appendChild(card);
+          });
+        }
+      });
+    }
+
+    // Auto login kalau sebelumnya sudah login
+    window.addEventListener('load', () => {
       if (sessionStorage.getItem("loggedIn") === "true") {
-        document.getElementById("login-screen").classList.add("hidden");
-        document.getElementById("main-screen").classList.remove("hidden");
-        signInAnonymously(auth).then(loadUploadedData);
+        signInAnonymously(auth).then(() => {
+          loginScreen.classList.add('hidden');
+          mainScreen.classList.remove('hidden');
+          loadData();
+        });
       }
     });
   </script>
