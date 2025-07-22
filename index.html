@@ -42,6 +42,7 @@
   function checkPassword() {
     const pw = document.getElementById("password").value;
     if (pw === "Zen123") {
+      sessionStorage.setItem("loggedIn", "true");
       document.getElementById("login-screen").classList.add("hidden");
       document.getElementById("main-screen").classList.remove("hidden");
       loadLinks();
@@ -74,10 +75,10 @@
     const { data, error } = await supabase
       .from("savelink")
       .select("*")
-      .order("created_a", { ascending: false });
+      .order("created_at", { ascending: false });
 
     if (error) {
-      list.innerHTML = `<p style="color:red;">Gagal memuat data: ${error.message}</p>`;
+      list.innerHTML = `<p style=\"color:red;\">Gagal memuat data: ${error.message}</p>`;
       return;
     }
 
@@ -89,6 +90,14 @@
       list.appendChild(div);
     });
   }
+
+  window.addEventListener("load", () => {
+    if (sessionStorage.getItem("loggedIn") === "true") {
+      document.getElementById("login-screen").classList.add("hidden");
+      document.getElementById("main-screen").classList.remove("hidden");
+      loadLinks();
+    }
+  });
 </script>
 
 </body>
