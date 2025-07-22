@@ -1,59 +1,101 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Simpan Link</title>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unggah Foto dan Link</title>
   <style>
     body { font-family: Arial, sans-serif; background-color: #f2f2f2; }
     .container { max-width: 600px; margin: auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    input[type="text"] { width: 100%; margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+    input[type="file"], input[type="text"], input[type="password"] { width: 100%; margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
     button { padding: 10px; background-color: #28a745; color: white; border: none; cursor: pointer; border-radius: 4px; }
-    #uploadStatus { margin-top: 10px; }
+    .hidden { display: none; }
+    .error { color: red; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h2>Simpan Link</h2>
+  <div class="container" id="login-screen">
+    <h3>Masukkan Kunci</h3>
+    <input type="password" id="password" placeholder="Password...">
+    <button onclick="checkPassword()">Masuk</button>
+    <p id="error" class="error"></p>
+  </div>
+
+  <div class="container hidden" id="main-screen">
+    <h2>Unggah Foto dan Link</h2>
+    <input type="file" id="fileInput" accept="image/*">
     <input type="text" id="linkInput" placeholder="Masukkan link di sini">
-    <button id="saveButton">Simpan</button>
+    <button id="uploadButton">Unggah</button>
     <p id="uploadStatus"></p>
   </div>
 
-  <script>
-    // Firebase Config kamu
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+    import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-storage.js";
+    import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+
     const firebaseConfig = {
-      apiKey: "AIzaSyDOFcgj8ymBVbWsOWr0oTMArn09fBumnv4",
-      authDomain: "zennowser.firebaseapp.com",
-      databaseURL: "https://zennowser-default-rtdb.firebaseio.com",
-      projectId: "zennowser",
-      storageBucket: "zennowser.appspot.com",
-      messagingSenderId: "864961650815",
-      appId: "1:864961650815:web:94c0a8f902de040a7d5f4a"
+      apiKey: "AIzaSyCFYGEHBHvPC_djgsZeAaYEh5UTv21fmHE",
+      authDomain: "zenstatlord.firebaseapp.com",
+      projectId: "zenstatlord",
+      storageBucket: "zenstatlord.appspot.com",
+      messagingSenderId: "207937844507",
+      appId: "1:207937844507:web:e0fce716325164a1240fbe",
+      measurementId: "G-GLSWV3S82F"
     };
 
-    // Inisialisasi Firebase
-    const app = firebase.initializeApp(firebaseConfig);
-    const database = firebase.database();
+    const app = initializeApp(firebaseConfig);
+    const storage = getStorage(app);
+    const db = getFirestore(app);
 
-    // Simpan Link
-    document.getElementById('saveButton').addEventListener('click', function () {
-      const link = document.getElementById('linkInput').value.trim();
-      if (link) {
-        database.ref('zen10-links/').push({
-          link: link,
-          timestamp: new Date().toISOString()
-        }).then(() => {
-          document.getElementById('uploadStatus').textContent = '✅ Link berhasil disimpan!';
-          document.getElementById('linkInput').value = '';
-        }).catch((error) => {
-          console.error('Error menyimpan data: ', error);
-          document.getElementById('uploadStatus').textContent = '❌ Gagal menyimpan link.';
-        });
+    // Password check
+    window.checkPassword = function () {
+      const pw = document.getElementById("password").value;
+      if (pw === "Zen10") {
+        sessionStorage.setItem("loggedIn", "true");
+        document.getElementById("login-screen").classList.add("hidden");
+        document.getElementById("main-screen").classList.remove("hidden");
       } else {
-        alert('Masukkan link dulu, bro!');
+        document.getElementById("error").textContent = "Password salah.";
+      }
+    };
+
+    // Upload handler
+    document.getElementById('uploadButton').addEventListener('click', async function () {
+      const file = document.getElementById('fileInput').files[0];
+      const link = document.getElementById('linkInput').value.trim();
+      const status = document.getElementById('uploadStatus');
+
+      if (file && link) {
+        try {
+          const fileRef = storageRef(storage, 'zen10-uploads/' + file.name);
+          await uploadBytes(fileRef, file);
+          const downloadURL = await getDownloadURL(fileRef);
+
+          await addDoc(collection(db, "zen10-links"), {
+            imageUrl: downloadURL,
+            link: link,
+            createdAt: serverTimestamp()
+          });
+
+          status.textContent = "Berhasil diunggah dan disimpan!";
+          document.getElementById('fileInput').value = '';
+          document.getElementById('linkInput').value = '';
+        } catch (err) {
+          console.error(err);
+          status.textContent = "Gagal menyimpan data.";
+        }
+      } else {
+        alert("Silakan pilih gambar dan isi link.");
+      }
+    });
+
+    // Auto login if session exists
+    window.addEventListener("load", () => {
+      if (sessionStorage.getItem("loggedIn") === "true") {
+        document.getElementById("login-screen").classList.add("hidden");
+        document.getElementById("main-screen").classList.remove("hidden");
       }
     });
   </script>
