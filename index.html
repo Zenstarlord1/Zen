@@ -2,102 +2,101 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Unggah Foto dan Link</title>
+  <title>Link Saver</title>
   <style>
-    body { font-family: Arial, sans-serif; background-color: #f2f2f2; }
-    .container { max-width: 600px; margin: auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    input[type="file"], input[type="text"], input[type="password"] { width: 100%; margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
-    button { padding: 10px; background-color: #28a745; color: white; border: none; cursor: pointer; border-radius: 4px; }
-    .hidden { display: none; }
-    .error { color: red; }
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      background: #f0f0f0;
+    }
+    #app { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 10px; }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 16px;
+    }
+    .link-item {
+      margin-top: 10px;
+      padding: 10px;
+      background: #e3e3ff;
+      border-radius: 5px;
+    }
   </style>
 </head>
 <body>
-  <div class="container" id="login-screen">
-    <h3>Masukkan Kunci</h3>
-    <input type="password" id="password" placeholder="Password...">
-    <button onclick="checkPassword()">Masuk</button>
-    <p id="error" class="error"></p>
+  <div id="app">
+    <div id="login">
+      <h2>Masukkan Password</h2>
+      <input type="password" id="password" placeholder="Password" />
+      <button onclick="checkPassword()">Login</button>
+    </div>
+
+    <div id="main" style="display:none;">
+      <h2>Simpan Link</h2>
+      <input type="text" id="linkInput" placeholder="Masukkan URL" />
+      <button onclick="saveLink()">Simpan</button>
+      <div id="linkList"></div>
+    </div>
   </div>
 
-  <div class="container hidden" id="main-screen">
-    <h2>Unggah Foto dan Link</h2>
-    <input type="file" id="fileInput" accept="image/*">
-    <input type="text" id="linkInput" placeholder="Masukkan link di sini">
-    <button id="uploadButton">Unggah</button>
-    <p id="uploadStatus"></p>
-  </div>
-
-  <!-- Firebase SDK -->
+  <!-- Firebase CDN -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-    import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-storage.js";
-    import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
+    // Firebase config (ZENSTATLORD)
     const firebaseConfig = {
       apiKey: "AIzaSyCFYGEHBHvPC_djgsZeAaYEh5UTv21fmHE",
       authDomain: "zenstatlord.firebaseapp.com",
+      databaseURL: "https://zenstatlord-default-rtdb.firebaseio.com",
       projectId: "zenstatlord",
-      storageBucket: "zenstatlord.appspot.com",
+      storageBucket: "zenstatlord.firebasestorage.app",
       messagingSenderId: "207937844507",
       appId: "1:207937844507:web:e0fce716325164a1240fbe",
       measurementId: "G-GLSWV3S82F"
     };
 
     const app = initializeApp(firebaseConfig);
-    const storage = getStorage(app);
     const db = getFirestore(app);
 
-    // Password check
-    window.checkPassword = function () {
+    async function saveLink() {
+      const link = document.getElementById("linkInput").value.trim();
+      if (!link) return alert("Link kosong");
+
+      await addDoc(collection(db, "links"), {
+        url: link,
+        timestamp: new Date()
+      });
+
+      document.getElementById("linkInput").value = "";
+      loadLinks();
+    }
+
+    async function loadLinks() {
+      const linkList = document.getElementById("linkList");
+      linkList.innerHTML = "";
+
+      const querySnapshot = await getDocs(collection(db, "links"));
+      querySnapshot.forEach(doc => {
+        const data = doc.data();
+        const div = document.createElement("div");
+        div.className = "link-item";
+        div.innerHTML = `<a href="${data.url}" target="_blank">${data.url}</a>`;
+        linkList.appendChild(div);
+      });
+    }
+
+    function checkPassword() {
       const pw = document.getElementById("password").value;
       if (pw === "Zen10") {
-        sessionStorage.setItem("loggedIn", "true");
-        document.getElementById("login-screen").classList.add("hidden");
-        document.getElementById("main-screen").classList.remove("hidden");
+        document.getElementById("login").style.display = "none";
+        document.getElementById("main").style.display = "block";
+        loadLinks();
       } else {
-        document.getElementById("error").textContent = "Password salah.";
+        alert("Password salah");
       }
-    };
-
-    // Upload handler
-    document.getElementById('uploadButton').addEventListener('click', async function () {
-      const file = document.getElementById('fileInput').files[0];
-      const link = document.getElementById('linkInput').value.trim();
-      const status = document.getElementById('uploadStatus');
-
-      if (file && link) {
-        try {
-          const fileRef = storageRef(storage, 'zen10-uploads/' + file.name);
-          await uploadBytes(fileRef, file);
-          const downloadURL = await getDownloadURL(fileRef);
-
-          await addDoc(collection(db, "zen10-links"), {
-            imageUrl: downloadURL,
-            link: link,
-            createdAt: serverTimestamp()
-          });
-
-          status.textContent = "Berhasil diunggah dan disimpan!";
-          document.getElementById('fileInput').value = '';
-          document.getElementById('linkInput').value = '';
-        } catch (err) {
-          console.error(err);
-          status.textContent = "Gagal menyimpan data.";
-        }
-      } else {
-        alert("Silakan pilih gambar dan isi link.");
-      }
-    });
-
-    // Auto login if session exists
-    window.addEventListener("load", () => {
-      if (sessionStorage.getItem("loggedIn") === "true") {
-        document.getElementById("login-screen").classList.add("hidden");
-        document.getElementById("main-screen").classList.remove("hidden");
-      }
-    });
+    }
   </script>
 </body>
 </html>
