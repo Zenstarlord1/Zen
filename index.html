@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Upload Link dan Gambar</title>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage.js"></script>
   <style>
@@ -60,33 +59,12 @@
     };
 
     const app = firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
     const storage = firebase.storage();
     const database = firebase.database();
-
-    let isAuthed = false;
-
-    auth.signInAnonymously()
-      .then(() => {
-        isAuthed = true;
-        if (sessionStorage.getItem("loggedIn") === "true") {
-          document.getElementById("login-screen").classList.add("hidden");
-          document.getElementById("main-screen").classList.remove("hidden");
-          loadGallery();
-        }
-      })
-      .catch(error => {
-        console.error("Anonymous login failed:", error);
-      });
 
     function checkPassword() {
       const pw = document.getElementById("password").value;
       if (pw === "Zen10") {
-        if (!isAuthed) {
-          alert("Sedang login ke Firebase... Tunggu sebentar.");
-          return;
-        }
-        sessionStorage.setItem("loggedIn", "true");
         document.getElementById("login-screen").classList.add("hidden");
         document.getElementById("main-screen").classList.remove("hidden");
         loadGallery();
@@ -163,7 +141,7 @@
             gallery.appendChild(div);
           });
         } else {
-          gallery.innerHTML = "<p>Tidak ada data.</p>";
+          gallery.innerHTML = "<p>Belum ada data.</p>";
         }
       });
     }
