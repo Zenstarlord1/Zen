@@ -56,9 +56,15 @@
     const url = document.getElementById("url").value;
     const desc = document.getElementById("desc").value;
 
-    await supabase.from("savedlinks").insert([{ title, url, desc }]);
-    document.getElementById("link-form").reset();
-    loadLinks();
+    const { data, error } = await supabase.from("savelink").insert([{ title, url, desc }]);
+
+    if (error) {
+      console.error("Gagal insert:", error.message);
+      alert("Gagal menyimpan: " + error.message);
+    } else {
+      document.getElementById("link-form").reset();
+      loadLinks();
+    }
   });
 
   async function loadLinks() {
@@ -66,9 +72,9 @@
     list.innerHTML = "<p>Memuat data...</p>";
 
     const { data, error } = await supabase
-      .from("savedlinks")
+      .from("savelink")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("created_a", { ascending: false });
 
     if (error) {
       list.innerHTML = `<p style="color:red;">Gagal memuat data: ${error.message}</p>`;
