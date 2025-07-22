@@ -1,29 +1,21 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Simpan Link</title>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
   <style>
     body { font-family: Arial, sans-serif; background-color: #f2f2f2; }
     .container { max-width: 600px; margin: auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    input[type="text"], input[type="password"] { width: 100%; margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+    input[type="text"] { width: 100%; margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
     button { padding: 10px; background-color: #28a745; color: white; border: none; cursor: pointer; border-radius: 4px; }
-    .hidden { display: none; }
-    .error { color: red; }
+    #uploadStatus { margin-top: 10px; }
   </style>
 </head>
 <body>
-  <div class="container" id="login-screen">
-    <h3>Masukkan Kunci</h3>
-    <input type="password" id="password" placeholder="Password...">
-    <button onclick="checkPassword()">Masuk</button>
-    <p id="error" class="error"></p>
-  </div>
-
-  <div class="container hidden" id="main-screen">
+  <div class="container">
     <h2>Simpan Link</h2>
     <input type="text" id="linkInput" placeholder="Masukkan link di sini">
     <button id="saveButton">Simpan</button>
@@ -31,7 +23,7 @@
   </div>
 
   <script>
-    // Firebase Config milikmu
+    // Firebase Config kamu
     const firebaseConfig = {
       apiKey: "AIzaSyDOFcgj8ymBVbWsOWr0oTMArn09fBumnv4",
       authDomain: "zennowser.firebaseapp.com",
@@ -46,42 +38,22 @@
     const app = firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    // Cek Password
-    function checkPassword() {
-      const pw = document.getElementById("password").value;
-      if (pw === "Zen10") {
-        sessionStorage.setItem("loggedIn", "true");
-        document.getElementById("login-screen").classList.add("hidden");
-        document.getElementById("main-screen").classList.remove("hidden");
-      } else {
-        document.getElementById("error").textContent = "Password salah.";
-      }
-    }
-
     // Simpan Link
-    document.getElementById('saveButton').addEventListener('click', function() {
+    document.getElementById('saveButton').addEventListener('click', function () {
       const link = document.getElementById('linkInput').value.trim();
       if (link) {
         database.ref('zen10-links/').push({
           link: link,
           timestamp: new Date().toISOString()
         }).then(() => {
-          document.getElementById('uploadStatus').textContent = 'Link berhasil disimpan!';
+          document.getElementById('uploadStatus').textContent = '✅ Link berhasil disimpan!';
           document.getElementById('linkInput').value = '';
         }).catch((error) => {
           console.error('Error menyimpan data: ', error);
-          document.getElementById('uploadStatus').textContent = 'Gagal menyimpan link.';
+          document.getElementById('uploadStatus').textContent = '❌ Gagal menyimpan link.';
         });
       } else {
-        alert('Silakan masukkan link.');
-      }
-    });
-
-    // Cek sesi
-    window.addEventListener("load", () => {
-      if (sessionStorage.getItem("loggedIn") === "true") {
-        document.getElementById("login-screen").classList.add("hidden");
-        document.getElementById("main-screen").classList.remove("hidden");
+        alert('Masukkan link dulu, bro!');
       }
     });
   </script>
